@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="utf-8">
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="stats.js"></script>
+  <script src="hole.js"></script>
+  <script src="shot.js"></script>
+  <script src="player.js"></script>
+  <script src="hole_layout.js"></script>
+  <style>
+    div.menu {
+      width: 280px;
+      height: 100px;
+      font-size: 40px;
+      text-align: center;
+      line-height: 100px;
+      border-width: 10px;
+      border-style: outset;
+      border-color: #404040;
+    }
+    div.menu.selected, span.button.selected {
+      border-style: inset;
+    }
+    div.panel {
+      font-size: 20px;
+      padding: 20px;
+    }
+    span.button {
+      display: inline-block;
+      width: 40px;
+      height: 35px;
+      font-size: 30px;
+      text-align: center;
+      margin: 8px;
+      border-width: 5px;
+      border-style: outset;
+      border-color: #404040;
+    }
+    select {
+      font-size: 20px;
+      color: white; 
+      background-color: #202020;
+      border-radius: 5px
+    }
+    .up {
+      color: green; 
+    }
+    .down {
+      color: red; 
+    }
+    .red_shadow {
+      text-shadow: 2px 0 0 red, -2px 0 0 red, 0 2px 0 red, 0 -2px 0 red, 1px 1px red, -1px -1px 0 red, 1px -1px 0 red, -1px 1px 0 red;
+    }
+    .green_shadow {
+      text-shadow: 2px 0 0 green, -2px 0 0 green, 0 2px 0 green, 0 -2px 0 green, 1px 1px green, -1px -1px 0 green, 1px -1px 0 green, -1px 1px 0 green;
+    }
+    .vl {
+      border-left: 1px solid;
+      height: 10px;
+    }
+    td {
+      text-align: center;
+    }
+    td.left {
+      text-align: left;
+    }
+    thead {
+      font-weight: bold;
+      background-color: #202020;
+    }
+    .striped tr:nth-child(even) {
+      background-color: #202020;
+    }
+    #hole_shots {
+      width: 800px;
+      height: 700px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center center;
+    }
+    .axis path, .axis line {
+	    fill: none;
+	    shape-rendering: crispEdges;
+    }
+    .axis text {
+      fill: white;
+    }
+    .line { 
+      fill: none;
+    }
+    .legendtext {
+      fill: white; 
+    }
+    #scoreboard_table, #projection_table, #projection_header, #latest_shots_table, #hole_view_table, 
+    #player_bio_table, #player_stats_table, #player_current_table, #player_history_table, #player_best_holes_table {
+      width: 100%;
+    }
+  </style>
+<body style="color: white">
+  <div style="background: #303030; width: 1600px; height: 800px; border-radius: 50px; display: flex">
+    <div style="width: 300px; height: 100%; border-radius: 50px 0px 0px 50px;">
+      <div style="width: 100%; height: 100px"></div>
+      <div class="menu" data-item="scoreboard">Scoreboard</div>
+      <div class="menu" data-item="projections">Projections</div>
+      <div class="menu" data-item="player_view">Player View</div>
+      <div class="menu" data-item="hole_view">Hole View</div>
+      <div class="menu" data-item="latest_shots">Latest Shots</div>
+      <div style="width: 100%; height: 100px"></div>
+    </div>
+    <div style="width: 1300px; height: 100%; border-radius: 0px 50px 50px 0px;">
+      <div id="scoreboard" class="panel">
+        <div style="width: 100%; height: 100px">
+          <span style="width: 50%; font-size: 80px; margin: 10px 10px 10px 50px">Scoreboard</span>
+        </div>
+        <div style="width: 100%; height: 300px; overflow-y: scroll">
+          <table id="scoreboard_table" class="striped">
+            <thead><td width="6%"></td><td width="6%">Pos</td><td width="18%" class="left">Player</td><td width="6%">Score</td><td width="12%">Thru</td>
+              <td width="12%">This Round</td><td width="10%">R1</td><td width="10%">R2</td><td width="10%">R3</td><td width="10%">R4</td>
+            </thead>
+            <tbody id="scoreboard_tbody"></tbody>
+          </table>
+        </div>
+        <div id="scoreboard_svg" style="width: 100%; height: 350px"></div>
+      </div>
+      <div id="projections" class="panel">
+        <div style="width: 100%; height: 100px">
+          <span style="width: 50%; font-size: 80px; margin: 10px 10px 10px 50px">Projections</span>
+        </div>
+        <div style="width: 100%; height: 50px">
+          <table id="projection_header" style="width: 98.6%">
+            <thead><td width="28%">Player</td><td width="12%">Score to Par</td><td width="12%">Score to Projection</td>
+              <td width="12%">Last Five Holes</td><td width="12%">Final Projection</td><td width="12%">Projected Finish</td><td width="12%">Odds to Win</td>
+            </thead>
+          </table>
+        </div>
+        <div style="width: 100%; height: 590px; overflow-y: scroll">
+          <table id="projection_table" class="striped">
+            <thead><td width="28%" class="left"></td><td width="12%"></td><td width="12%"></td><td width="12%"></td><td width="12%"></td><td width="12%"></td><td width="12%"></td>
+            </thead>
+            <tbody id="projection_tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="player_view" class="panel">
+        <div style="width: 100%; height: 100px">
+          <span id="player_name" style="width: 60%; font-size: 80px; margin: 10px 10px 10px 50px"></span>
+          <span style="width: 15%; font-size: 30px; margin: 10px 10px 10px 50px">Select Player</span>
+          <span style="width: 25%; font-size: 30px; margin: 10px 10px 10px 10px"><select id="player_view_select"></select></span>
+        </div>
+        <div style="width: 100%; height: 250px; display: flex">
+          <div style="width: 250px; height: 200px"><img id="player_picture"/></div>
+          <div style="width: 16%; height: 200px; font-size: 25px">
+            <table id="player_bio_table" style="width: 95%">
+              <tbody id="player_bio_tbody"></tbody>
+            </table>
+          </div>
+          <div style="width: 270px; height: 200px">
+            <table id="player_stats_table" style="width: 95%; height: 100%; font-size: 35px; border-collapse: collapse">
+              <thead><td width="50%"></td><td width="50%"></td></thead>
+              <tbody id="player_stats_tbody" style="background-image: url('player_stats.PNG'); background-size: cover"></tbody>
+            </table>
+          </div>
+          <div id="player_graphs" style="width: 43%; height: 200px"></div>
+        </div>
+        <div style="width: 100%; height: 340px; display: flex">
+          <div style="width: 40%; height: 390px">
+            <div style="width: 100%; height: 60px; margin: 30px 10px 10px 10px">
+              <span style="font-size: 25px; margin: 10px 10px 10px 50px">2018 Phoenix Waste Management Open</span>
+            </div>
+            <table id="player_current_table" class="striped" style="width: 95%">
+              <tbody id="player_current_tbody"></tbody>
+            </table>
+          </div>
+          <div style="width: 30%; height: 390px">
+            <div style="width: 100%; height: 60px; margin: 30px 10px 10px 10px">
+              <span style="font-size: 25px; margin: 10px 10px 10px 50px">History at TPC Scottsdale</span>
+            </div>
+            <table id="player_history_table" class="striped" style="width: 95%">
+              <tbody id="player_history_tbody"></tbody>
+            </table>
+          </div>
+          <div style="width: 30%; height: 390px">
+            <div style="width: 100%; height: 60px; margin: 30px 10px 10px 10px">
+              <span style="font-size: 25px; margin: 10px 10px 10px 50px">Five Best Holes This Weekend</span>
+            </div>
+            <table id="player_best_holes_table" class="striped" style="width: 95%">
+                <thead><td width="33%">Round</td><td width="33%">Hole</td><td width="34%">Score Relative to Field</td></thead>
+                <tbody id="player_best_holes_tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="hole_view" class="panel">
+        <div id="show_hole" style="width: 100%; height: 50px">
+          <span class="button selected">1</span><span class="button">2</span><span class="button">3</span><span class="button">4</span><span class="button">5</span><span class="button">6</span>
+          <span class="button">7</span><span class="button">8</span><span class="button">9</span><span class="button">10</span><span class="button">11</span><span class="button">12</span>
+          <span class="button">13</span><span class="button">14</span><span class="button">15</span><span class="button">16</span><span class="button">17</span><span class="button">18</span>
+        </div>
+        <div style="width: 100%; height: 100%; display: flex">
+          <div style="width: 29%; height: 100%">
+            <div style="width: 100%; font-size: 80px; margin: 20px 50px 20px 50px">
+              <span id="hole_number">Hole 1</span><br>
+            </div>
+            <div style="width: 100%; font-size: 25px; margin: 20px 20px 20px 20px">
+              <span id="hole_par" style="margin: 10px 20px 10px 0px"></span>
+              <span id="hole_distance" style="margin: 10px 20px 10px 20px"></span>
+              <span id="hole_count" style="margin: 10px 0px 10px 20px"></span>
+            </div>
+            <table id="hole_view_table" class="striped">
+              <tbody id="hole_view_tbody"></tbody>
+            </table>
+            <div id="show_round" style="width: 100%; font-size: 30px; margin: 20px 20px 20px 20px">
+              <span>Select Player</span><br>
+              <select id="hole_shots_select"><option>All</option></select><br>&nbsp;<br>
+              <span>Select Round</span><br>
+              <span class="button selected">1</span>
+              <span class="button">2</span>
+              <span class="button">3</span>
+              <span class="button">4</span>
+            </div>
+          </div>
+          <div style="width: 70%; height: 100%"><div id="hole_shots"></div></div>
+        </div>
+      </div>
+      <div id="latest_shots" class="panel">
+        <div style="width: 100%; height: 100px">
+          <span style="width: 50%; font-size: 80px; margin: 10px 10px 10px 50px">Latest Shots</span>
+          <span style="width: 20%; font-size: 30px; margin: 10px 10px 10px 200px">Select Player</span>
+          <span style="width: 30%; font-size: 30px; margin: 10px 10px 10px 10px"><select id="latest_shots_select"><option>All</option></select></span>
+        </div>
+        <div style="width: 100%; height: 250px">
+          <table id="latest_shots_table" class="striped" style="width: 98.6%">
+            <thead><td width="28%">Player</td><td width="12%">Round/Hole</td><td width="12%">Shot #</td>
+              <td width="12%">Distance</td><td width="12%">Lie</td><td width="12%">Result</td><td width="12%">Impact Index</td>
+            </thead>
+            <tbody id="latest_shots_tbody"></tbody>
+          </table>
+        </div>
+        <div style="width: 100%; height: 390px; display: flex">
+          <div style="width: 42%; height: 390px">
+            <div style="width: 100%; height: 60px; margin: 30px 10px 10px 10px">
+              <span style="font-size: 30px; margin: 10px 10px 10px 50px">Odds of Winning by Hole</span>
+            </div>
+            <table id="odds_table" class="striped" style="width: 96%">
+              <thead><td width="40%" class="left">Player</td><td width="15%">R1</td><td width="15%">R2</td><td width="15%">R3</td><td width="15%">R4</td></thead>
+            </table>
+            <div style="width: 100%; height: 280px; overflow-y: scroll">
+              <table id="odds_table" class="striped" style="width: 100%">
+                <td width="44%" class="left"></td><td width="14%"></td><td width="14%"></td><td width="14%"></td><td width="14%"></td>
+                <tbody id="odds_tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div style="width: 58%; height: 390px">
+            <div style="width: 100%; height: 60px; margin: 30px 10px 10px 10px">
+              <span style="font-size: 30px; margin: 10px 10px 10px 50px">Most Impactful Shots This Weekend</span>
+            </div>
+            <table id="impact_table" class="striped" style="width: 100%">
+              <thead>
+                <td width="9%">Rank</td><td width="28%" class="left">Player</td><td width="10%">Round</td><td width="8%">Hole</td><td width="8%">Shot</td>
+                <td width="19%">Hole Result</td><td width="18%">Impact Index</td>
+              </thead>
+              <tbody id="impact_tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    holes = {};
+    players = {};
+    scoreboard = [];
+    scoreboard_selected = [0,0,0,0,0];
+    scoreboard_colors = ["red","blue","green","brown","gold"];
+    hole_data = [];
+    shots = [];
+
+    $(document).ready(function() {
+      createPlayerSVG();
+      $('div.panel').hide();
+      $('div.menu').click(function() {
+        $('div.menu').removeClass('selected');
+        $('div.panel').hide();
+        $('#' + $(this).data('item')).show();
+        $(this).addClass('selected');
+      });
+      $('#player_view_select').change(function () {
+        displayPlayer(players[$('#player_view_select option:selected').val()]);
+      }); 
+      $('#show_hole .button').click(function() {
+        $('#show_hole .button').removeClass('selected');
+        displayHole(holes[$(this).text()]);
+        updateHoleShots(hole_data, $(this).text(), $('#show_round .button.selected').text(), $('#hole_shots_select option:selected').val());
+        $(this).addClass('selected');
+      });
+      $('#show_round .button').click(function() {
+        $('#show_round .button').removeClass('selected');
+        updateHoleShots(hole_data, $('#show_hole .button.selected').text(), $(this).text(), $('#hole_shots_select option:selected').val());
+        $(this).addClass('selected');
+      });
+      $('#hole_shots_select').change(function () {
+        updateHoleShots(hole_data, $('#show_hole .button.selected').text(), $('#show_round .button.selected').text(), $('#hole_shots_select option:selected').val());
+      });
+      $('#latest_shots_select').change(function () {
+        displayLatestShots($('#latest_shots_select option:selected').val());
+      });
+      $('#scoreboard_tbody').on('click', '.scoreboard_checkBox', function() {
+        var playerNumber = $(this).data('player-number');
+        if ($(this).is(':checked')) {
+          if (countSelectedPlayers() < scoreboard_selected.length) {
+            index = addSelectedPlayer(playerNumber);
+            $(this).parent().next().next().css('color', scoreboard_colors[index]);
+            $(this).css('background-color','red');
+          }
+        }
+        else {
+          removeSelectedPlayer(playerNumber);
+          $(this).parent().next().next().css('color', 'white');
+        }
+        if (countSelectedPlayers() > scoreboard_selected.length - 1) $('.scoreboard_checkBox:not(:checked)').hide();
+        else $('.scoreboard_checkBox:not(:checked)').show();
+      });
+    });
+
+    d3.csv("tournament.csv", function(data) {
+      for (i = 0; i < data.length; i++) {
+        var playerNumber = data[i]["Player #"];
+        var player = players[playerNumber];
+        if (!player) {
+          player = new Player(playerNumber, data[i]["Player Name"]);
+          players[playerNumber] = player;
+          scoreboard.push(player);
+        }
+        player.addHole(parseInt(data[i]["RTP Score"]), parseInt(data[i]["Round #"]), parseInt(data[i]["Hole Seq #"]), parseInt(data[i]["Par"]), parseInt(data[i]["Hole #"]));
+        player.addShot(parseInt(data[i]["Par"]), Math.round(parseFloat(data[i]["Hole Projection"]) * 100) / 100, parseInt(data[i]["RTP Score"]), parseInt(data[i]["Driving Distance (rounded)"]), 
+                       parseInt(data[i]["Hit Fwy"]), parseInt(data[i]["Hit Green"]), parseInt(data[i]["Putts"]));
+        player.projection = Math.round((parseFloat(data[i]["Initial Projection"]) * 4 - 284) * 100) / 100;
+        player.currentProjection = Math.round((parseFloat(data[i]["Current Projection"]) * 4 - 284) * 100) / 100;
+        player.odds = Math.round(parseFloat(data[i]["Initial Odds"])) + ":1";
+
+        var holeNumber = data[i]["Hole #"];
+        var hole = holes[holeNumber];
+        if (!hole) {
+          hole = new Hole(holeNumber, parseInt(data[i]["Par"]), parseInt(data[i]["Actual Yard"]));
+          holes[holeNumber] = hole;
+        }
+        hole.addShot(Math.round(parseFloat(data[i]["Hole Projection"]) * 100) / 100, parseInt(data[i]["RTP Score"]), parseInt(data[i]["Driving Distance (rounded)"]), 
+                     parseInt(data[i]["Hit Fwy"]), parseInt(data[i]["Hit Green"]), parseInt(data[i]["Putts"]));
+      }
+      scoreboard.sort(function(p1, p2) { return p1.projection - p2.projection; });
+      var currentScore = 100;
+      var currentPosition = 1;
+      for (var i = 0; i < scoreboard.length; i++) {
+        if (currentScore != scoreboard[i].projection) {
+          currentScore = scoreboard[i].projection;
+          currentPosition = i + 1;
+        }
+        scoreboard[i].finalPosition = currentPosition;
+      }
+      scoreboard.sort(function(p1, p2) { return p1.score - p2.score; });
+      displayScoreboard(scoreboard);
+      displayProjection(scoreboard.concat().sort(function(p1, p2) { return p1.name.localeCompare(p2.name); }));
+      displayPlayer(players["24357"]);
+      displayHole(holes[1]);
+    });
+
+    d3.csv("tournament-shots.csv", function(data) {
+      hole_data = data;
+      updateHoleShots(data, 1, 1);
+      for (var i = 0; i < data.length; i++) shots.push(new Shot(data[i]));
+      displayLatestShots();
+    });
+
+    d3.csv("player-profiles.csv", function(data) {
+      for (i = 0; i < data.length; i++) {
+        var playerNumber = data[i]["Player #"];
+        var player = players[playerNumber];
+        if (!player) {
+          player = new Player(playerNumber, data[i]["Player"]);
+          players[playerNumber] = player;
+          scoreboard.push(player);
+        }
+        player.rating = data[i]["Worldwide Ranking"];
+        player.age = data[i]["Age"];
+        player.tourWins = data[i]["PGA Tour Wins"];
+        player.majorWins = data[i]["PGA Major Wins"];
+        player.tournaments = data[i]["Tournaments"];
+        player.averageRound = data[i]["Average Round"] + " (" + data[i]["Average Round to Par"] + ")";
+        player.bestRound = data[i]["Best Round"] + " (" + data[i]["Most Recent Best Round"] + ")";
+        player.madeCut = data[i]["Made Cut"] + " (" + data[i]["Made Cut Average"] + ")";
+        player.averageFinish = data[i]["Average Finish"];
+        player.bestFinish = data[i]["Best Finish"] + " (" + data[i]["Best Finish Year"] + ")";
+        $('#player_view_select').append($('<option>').html(data[i]["Player"]).val(playerNumber));
+        $('#hole_shots_select').append($('<option>').html(data[i]["Player"]).val(playerNumber));
+        $('#latest_shots_select').append($('<option>').html(data[i]["Player"]).val(playerNumber));
+      }
+    });
+
+    function createPlayerSVG() {
+      var width = 1260, height = 330, padding = 35;
+      var xscale = d3.scale.linear().domain([0,72]).range([padding, width - padding]);
+      var yscale = d3.scale.linear().domain([2,-20]).range([height - padding, padding]);
+
+      d3.select("svg.chart").remove();
+      svg = d3.select("#scoreboard_svg").append("svg").attr("class","chart").attr("width", width).attr("height", height);
+
+      valueline = d3.svg.line().x(function(d) { return xscale(d.x); }).y(function(d) { return yscale(d.y); });
+
+      var xAxis = d3.svg.axis().scale(xscale).orient("bottom").ticks(36);
+      svg.append("g").attr("class", "axis").attr("transform", "translate(0," + (height - padding) + ")").call(xAxis);
+
+      var yAxis = d3.svg.axis().scale(yscale).orient("left");
+      svg.append("g").attr("class", "axis").attr("transform", "translate(" + padding + ",0)").call(yAxis);
+
+      svg.selectAll(".grid").data(yscale.ticks(10)).enter()
+         .append("line")
+         .attr({
+            "class":"grid",
+            "x1" : padding,
+            "x2" : width - padding,
+            "y1" : function(d) { return yscale(d);},
+            "y2" : function(d) { return yscale(d);},
+            "fill" : "none",
+            "shape-rendering" : "crispEdges",
+            "stroke" : "lightgray",
+            "stroke-width" : "1px",
+            "stroke-dasharray" : "5,5"
+         });
+    }
+
+    function countSelectedPlayers() {
+      var count = 0;
+      for (var i = 0; i < scoreboard_selected.length; i++) if(scoreboard_selected[i] != 0) count++;
+      return count;
+    }
+
+    function addSelectedPlayer(playerNumber) {
+      for (var i = 0; i < scoreboard_selected.length; i++) if(scoreboard_selected[i] == 0) {
+        scoreboard_selected[i] = playerNumber;
+        displayPlayerPath(players[playerNumber], i);
+        return i;
+      }
+    }
+
+    function removeSelectedPlayer(playerNumber) {
+      for (var i = 0; i < scoreboard_selected.length; i++) if(scoreboard_selected[i] == playerNumber) {
+        scoreboard_selected[i] = 0;
+        svg.selectAll('.path' + i).remove();
+        return i;
+      }
+    }
+
+    function displayPlayerPath(player, index) {
+      svg.selectAll('.path' + index).data(player.getHoles()).enter().append("path").attr("class", "line path" + index)
+      .attr("d", function(d, i) { return valueline([{x:i + 0.5, y:d.previous - (index - 2) / 10}, {x:i + 1.5, y:d.current - (index - 2) / 10}]); })
+      .attr("stroke", function(d) { return scoreboard_colors[index]; })
+      .attr("stroke-width", function(d) { return "4px"; });
+    }
+
+    function displayUpDown(value, threshold) {
+      return value > threshold ? '<span class="down">&#x25BC;</span>' : value < -threshold ? '<span class="up">&#x25B2;</span>' : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+    }
+
+    function createTR(name, value) {
+      var $tr = $('<tr>');
+      $('<td>').html(name).appendTo($tr);
+      $('<td>').html(value).appendTo($tr);
+      return $tr;
+    }
+
+    function displayScoreboard(scoreboard) {
+      $scoreboard_tbody = $('#scoreboard_tbody');
+      $scoreboard_tbody.empty();
+      var currentScore = -100;
+      var currentPosition = 0;
+      $.each(scoreboard, function(i, player) {
+        if (currentScore != player.score) {
+          currentScore = player.score == 0 ? 'E' : player.score;
+          currentPosition = i + 1;
+        }
+        player.position = currentPosition;
+        var $tr = $('<tr>');
+        $('<td>').html('<input class="scoreboard_checkBox" type="checkbox" data-player-number="' + player.number + '"/>').appendTo($tr);
+        $('<td>').html(currentPosition).appendTo($tr);
+        $('<td>').addClass('left').css('color', player.color ? player.color : "white").html(player.name).appendTo($tr);
+        $('<td>').html(currentScore).appendTo($tr);
+        $('<td>').html('R' + player.round + ' H' + player.hole).appendTo($tr);
+        $('<td>').html(player.currentRoundScore()).appendTo($tr);
+        $('<td>').html(player.roundScore(1)).appendTo($tr);
+        $('<td>').html(player.roundScore(2)).appendTo($tr);
+        $('<td>').html(player.roundScore(3)).appendTo($tr);
+        $('<td>').html(player.roundScore(4)).appendTo($tr);
+        $scoreboard_tbody.append($tr);
+      });
+    }
+
+    function displayProjection(scoreboard) {
+      $projection_tbody = $('#projection_tbody');
+      $projection_tbody.empty();
+      $.each(scoreboard, function(i, player) {
+        var $tr = $('<tr>');
+        $('<td>').addClass('left').html(player.name).appendTo($tr);
+        $('<td>').html(player.score == 0 ? 'E' : player.score).appendTo($tr);
+        $('<td>').html(player.getInitialProjection() + displayUpDown(player.getInitialProjection(), 5)).appendTo($tr);
+        $('<td>').html(player.getLastHoles(5) + displayUpDown(player.getLastHoles(5), 2)).appendTo($tr);
+        $('<td>').html(player.getFinalProjectionScore() + displayUpDown(player.getFinalProjectionScore() - player.score, 3)).appendTo($tr);
+        $('<td>').html(player.finalPosition).appendTo($tr);
+        $('<td>').html(player.odds).appendTo($tr);
+        $projection_tbody.append($tr);
+      });
+    }
+
+    function displayPlayer(player) {
+      $('#player_picture').attr('src','players/' + player.name.split(',')[0] + '.png');
+      $('#player_name').text(player.name);
+      $player_bio_tbody = $('#player_bio_tbody');
+      $player_bio_tbody.empty();
+      $player_bio_tbody.append(createTR(player.rating + " Worldwide"));
+      $player_bio_tbody.append(createTR(player.age + " years old"));
+      $player_bio_tbody.append(createTR(player.tourWins + " Tour Wins"));
+      $player_bio_tbody.append(createTR(player.majorWins + " Major Wins"));
+
+      $player_stats_tbody = $('#player_stats_tbody');
+      $player_stats_tbody.empty();
+      var $tr = $('<tr>');
+      $('<td>').html(player.projection).appendTo($tr);
+      $('<td>').html(player.score).addClass(player.score < player.projection ? 'green_shadow' : 'red_shadow').appendTo($tr);
+      $player_stats_tbody.append($tr);
+      $tr = $('<tr>');
+      $('<td>').html(player.finalPosition).appendTo($tr);
+      $('<td>').html(player.position).addClass(player.score < player.projection ? 'green_shadow' : 'red_shadow').appendTo($tr);
+      $player_stats_tbody.append($tr);
+      $tr = $('<tr>');
+      $('<td>').attr('colspan', 2).css('vertical-align','top').html(player.odds).appendTo($tr);
+      $player_stats_tbody.append($tr);
+
+      $player_current_tbody = $('#player_current_tbody');
+      $player_current_tbody.empty();
+      $player_current_tbody.append(createTR("Projected Score", player.getFinalProjection()));
+      $player_current_tbody.append(createTR("Actual Score", player.getCurrentScore()));
+      $player_current_tbody.append(createTR("Average Drive", player.stats.getAverageDrive()));
+      $player_current_tbody.append(createTR("Average Putts", player.stats.getAveragePutts()));
+      $player_current_tbody.append(createTR("Hit Fairway", player.stats.getHitFairway()));
+      $player_current_tbody.append(createTR("On in Regulation", player.stats.getOnInRegulation()));
+      $player_current_tbody.append(createTR("Par or Better", player.stats.getParOrBetter()));
+
+      $player_history_tbody = $('#player_history_tbody');
+      $player_history_tbody.empty();
+      $player_history_tbody.append(createTR("Tournaments", player.tournaments));
+      $player_history_tbody.append(createTR("Average Round", player.averageRound));
+      $player_history_tbody.append(createTR("Best Round", player.bestRound));
+      $player_history_tbody.append(createTR("Made Cut", player.madeCut));
+      $player_history_tbody.append(createTR("Average Finish", player.averageFinish));
+      $player_history_tbody.append(createTR("Best Finish", player.bestFinish));
+
+      $player_best_holes_tbody = $('#player_best_holes_tbody');
+      $player_best_holes_tbody.empty();
+      var bestHoles = player.getBestHoles(holes);
+      for (var i = 0; i < 5; i++) {
+        var $tr = $('<tr>');
+        $('<td>').html(bestHoles[i].round).appendTo($tr);
+        $('<td>').html(bestHoles[i].hole).appendTo($tr);
+        $('<td>').html(bestHoles[i].difference).appendTo($tr);
+        $player_best_holes_tbody.append($tr);
+      }
+    }
+
+    function displayHole(hole) {
+      $('#hole_number').text("Hole " + hole.number);
+      $('#hole_par').text("Par " + hole.par);
+      $('#hole_distance').text(hole.distance + " yds");
+      $('#hole_count').text("Played " + hole.stats.scount);
+      $hole_view_tbody = $('#hole_view_tbody');
+      $hole_view_tbody.empty()
+      $hole_view_tbody.append(createTR("Projected Score", hole.stats.getProjectionScore()));
+      $hole_view_tbody.append(createTR("Average Score", hole.stats.getAverageScore()));
+      $hole_view_tbody.append(createTR("Average Drive", hole.stats.getAverageDrive()));
+      $hole_view_tbody.append(createTR("Average Putts", hole.stats.getAveragePutts()));
+      $hole_view_tbody.append(createTR("Hit Fairway", hole.stats.getHitFairway()));
+      $hole_view_tbody.append(createTR("On in Regulation", hole.stats.getOnInRegulation()));
+      $hole_view_tbody.append(createTR("Par or Better", hole.stats.getParOrBetter()));
+      //$('#hole_shots').css('background-image', 'url("holes/Hole_' + hole.number + '.png")');
+    }
+
+    function displayLatestShots(playerNumber) {
+      playerShots = shots.filter(function(shot) { return playerNumber == undefined || playerNumber == null || playerNumber == 'All' || shot.number == playerNumber; });
+
+      playerShots.sort(function(s1, s2) { return s1.compare(s2); });
+      $latest_shots_tbody = $('#latest_shots_tbody');
+      $latest_shots_tbody.empty();
+      for (var i = 0; i < 8; i++) {
+        var $tr = $('<tr>');
+        $('<td>').addClass('left').html(playerShots[i].name).appendTo($tr);
+        $('<td>').html(playerShots[i].getRoundHole()).appendTo($tr);
+        $('<td>').html(playerShots[i].shot).appendTo($tr);
+        $('<td>').html(playerShots[i].getDistance()).appendTo($tr);
+        $('<td>').html(playerShots[i].lie).appendTo($tr);
+        $('<td>').html(playerShots[i].getResult()).appendTo($tr);
+        $('<td>').html(playerShots[i].impact).addClass(playerShots[i].impact > 0 ? 'green_shadow' : 'red_shadow').appendTo($tr);
+        $latest_shots_tbody.append($tr);
+      }
+
+      $odds_tbody = $('#odds_tbody');
+      $odds_tbody.empty();
+      for (var i = 0; i < scoreboard.length; i++) {
+        if (scoreboard[i].tournaments != null && (playerNumber == undefined || playerNumber == null || playerNumber == 'All' || scoreboard[i].number == playerNumber)) {
+          var $tr = $('<tr>');
+          $('<td>').addClass('left').html(scoreboard[i].name).appendTo($tr);
+          filteredShots = playerShots.filter(function(shot) { return shot.number == scoreboard[i].number; });
+          filteredShots.sort(function(s1, s2) { return s2.compare(s1); });
+          var j = 0;
+          $td = $('<td>');
+          for (; j < 284; j++)
+            if (filteredShots.length > j && filteredShots[j].round == 1)
+              $td.append($('<span>').addClass('vl').css('border-color','hsl(' + filteredShots[j].getImpact() + ',100%,50%)'));
+            else break;
+          $td.appendTo($tr);
+          $td = $('<td>');
+          for (; j < 284; j++)
+            if (filteredShots.length > j && filteredShots[j].round == 2)
+              $td.append($('<span>').addClass('vl').css('border-color','hsl(' + filteredShots[j].getImpact() + ',100%,50%)'));
+            else break;
+          $td.appendTo($tr);
+          $td = $('<td>');
+          for (; j < 284; j++)
+            if (filteredShots.length > j && filteredShots[j].round == 3)
+              $td.append($('<span>').addClass('vl').css('border-color','hsl(' + filteredShots[j].getImpact() + ',100%,50%)'));
+            else break;
+          $td.appendTo($tr);
+          $td = $('<td>');
+          for (; j < 284; j++)
+            if (filteredShots.length > j && filteredShots[j].round == 4)
+              $td.append($('<span>').addClass('vl').css('border-color','hsl(' + filteredShots[j].getImpact() + ',100%,50%)'));
+            else break;
+          $td.appendTo($tr);
+          $odds_tbody.append($tr);
+        }
+      }
+
+      playerShots.sort(function(s1, s2) { return Math.abs(s2.impact) - Math.abs(s1.impact); });
+      $impact_tbody = $('#impact_tbody');
+      $impact_tbody.empty();
+      for (var i = 0; i < 10; i++) {
+        var $tr = $('<tr>');
+        $('<td>').html(i + 1).appendTo($tr);
+        $('<td>').addClass('left').html(playerShots[i].name).appendTo($tr);
+        $('<td>').html(playerShots[i].round).appendTo($tr);
+        $('<td>').html(playerShots[i].hole).appendTo($tr);
+        $('<td>').html(playerShots[i].shot).appendTo($tr);
+        $('<td>').html(playerShots[i].getResult()).appendTo($tr);
+        $('<td>').html(playerShots[i].impact).addClass(playerShots[i].impact > 0 ? 'green_shadow' : 'red_shadow').appendTo($tr);
+        $impact_tbody.append($tr);
+      }
+    }
+  </script>
+</body>
+</html>
